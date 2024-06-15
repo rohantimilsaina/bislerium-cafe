@@ -1,0 +1,146 @@
+@page "/coffee-list"
+@inject CoffeeServices CoffeeServices
+@inject NavigationManager NavigationManager
+@inject OrderItemServices OrderItemServices
+@inject ISnackbar Snackbar
+@inject IDialogService Dialog
+
+@using bislerium_cafe_pos.Pages
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-12">
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" EndIcon="@Icons.Material.Filled.Add"
+                       class="mb-3" OnClick="OpenAddCoffeeTypeDialog" Disabled="@isUserStaff">
+                Add Coffee
+            </MudButton>
+
+            <MudTable Items="@Elements"
+                      Dense="@dense"
+                      Hover="@hover"
+                      Bordered="@bordered"
+                      Striped="@striped"
+                      Filter="new Func<Coffee,bool>(FilterFunc1)">
+
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6" Class="text-primary">Coffee List</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="_searchString1" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                </ToolBarContent>
+
+                <HeaderContent>
+                    <MudTh>Coffee Type</MudTh>
+                    <MudTh>Price</MudTh>
+                    <MudTh>Cart</MudTh>
+                    <MudTh>Edit</MudTh>
+                    <MudTh>Delete</MudTh>
+                </HeaderContent>
+
+                <RowTemplate>
+                    <MudTd DataLabel="CoffeeType" Class="custom-coffee-type">@context.CoffeeType</MudTd>
+                        <MudTd DataLabel="Price">Rs. @context.Price</MudTd>
+                        <MudTd DataLabel="Cart">
+                            <MudIconButton Color="Color.Primary" Icon="@Icons.Material.Filled.ShoppingCart" aria-label="Cart" OnClick="@(() => handleAddItemInCart(context.Id, context.Price, context.CoffeeType))"></MudIconButton>
+                        </MudTd>
+                        <MudTd DataLabel="Edit">
+                            <MudIconButton Color="Color.Success" Icon="@Icons.Material.Filled.Edit" aria-label="Edit" OnClick="@(() => handleEdit(context.Id))" Disabled="@isUserStaff"></MudIconButton>
+                        </MudTd>
+                        <MudTd DataLabel="Remove">
+                            <MudIconButton Color="Color.Error" Icon="@Icons.Material.Filled.Remove" aria-label="Remove" OnClick="@(() => ConfirmDelete(context.Id))" Disabled="@isUserStaff"></MudIconButton>
+                        </MudTd>
+                    </RowTemplate>
+
+                    <PagerContent>
+                        <MudTablePager />
+                    </PagerContent>
+                </MudTable>
+            </div>
+        </div>
+    </div>
+
+    @code {
+    [CascadingParameter]
+    private GlobalState _globalState { get; set; }
+
+    private bool isUserStaff { get; set; }
+
+    private bool dense = true;
+    private bool hover = true;
+    private bool striped = true;
+    private bool bordered = true;
+    private string _searchString1 = "";
+
+    private IEnumerable<Coffee> Elements = new List<Coffee>();
+
+    protected override void OnInitialized()
+    {
+        Elements = CoffeeServices.GetCoffeeListFromJsonFile();
+        isUserStaff = _globalState.CurrentUser.Role.ToString() == "Staff";
+        _globalState.AppBarTitle = "Coffee List";
+    }
+
+    private void handleEdit(Guid cofeeID)
+    {
+        NavigationManager.NavigateTo($"/coffee-list/{cofeeID}");
+    }
+
+    private void handleAddItemInCart(Guid coffeeID, double itemPrice, string coffeeType)
+    {
+        OrderItemServices.AddItemInOrderItemsList(_globalState.OrderItems, coffeeID, coffeeType, "coffee", itemPrice);
+        Snackbar.Add($"{coffeeType} is Added to cart", Severity.Success);
+    }
+
+    private bool FilterFunc1(Coffee element) => FilterFunc(element, _searchString1);
+
+    private bool FilterFunc(Coffee element, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+
+        if (element.CoffeeType.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (element.Price.ToString().Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Elements = CoffeeServices.GetCoffeeListFromJsonFile();
+    }
+
+    private async Task OpenAddCoffeeTypeDialog()
+    {
+        DialogParameters dialogParameters = new() {
+            {"_globalState", _globalState },
+            {"ChangeParentState", new Action(Reload)},
+        };
+
+        Dialog.Show<AddCoffeeTypeDialog>("Add Coffee Type", dialogParameters);
+    }
+
+    private void Reload()
+    {
+        Elements = CoffeeServices.GetCoffeeListFromJsonFile();
+        StateHasChanged();
+    }
+
+    private async Task ConfirmDelete(Guid coffeeID)
+    {
+        var parameters = new DialogParameters
+        {
+            { "ContentText", "Are you sure you want to delete this coffee?" }
+        };
+
+        var dialog = Dialog.Show<ConfirmDeleteDialoag>("Confirm Delete", parameters);
+        var result = await dialog.Result;
+
+        if (!result.Cancelled)
+        {
+            Elements = CoffeeServices.DeleteCoffeeType(coffeeID);
+            Snackbar.Add("Coffee is Deleted Successfully", Severity.Success);
+        }
+    }
+}

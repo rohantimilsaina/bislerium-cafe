@@ -1,0 +1,132 @@
+@page "/generate-reports"
+@inject ISnackbar Snackbar
+@inject OrderServices OrderServices
+@using QuestPDF.Fluent
+@inject ReportDataService ReportDataService
+
+<style>
+    body {
+        display: flex;
+        align-items: flex-start; 
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+    }
+
+    .report-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 300px;
+        padding: 20px;
+        background-color: #f5f5f5; 
+        border-radius: 8px; 
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); 
+        transition: box-shadow 0.3s ease; 
+    }
+
+        .report-container:hover {
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2); 
+        }
+
+    .form-field {
+        margin-bottom: 1.5rem;
+    }
+</style>
+
+<div class="report-container">
+    <MudText Typo="Typo.h6">Select Date and Type</MudText>
+
+    <div class="form-field my-5">
+        <MudSelect @bind-Value="_reportType" Margin="Margin.Dense" T="string" Label="Report Type" Variant="Variant.Text">
+            <MudSelectItem Value="@("Daily")" />
+            <MudSelectItem Value="@("Monthly")" />
+        </MudSelect>
+    </div>
+
+    <div class="form-field">
+        <MudDatePicker Label="Select Date" Editable="true" @bind-Date="_date" Placeholder="Select Date" />
+    </div>
+
+    <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Primary" OnClick="HandleGenerateReport">Generate Report</MudButton>
+</div>
+
+@code {
+    [CascadingParameter] private GlobalState _globalState { get; set; }
+
+    private DateTime? _date { set; get; }
+    private string _reportType { set; get; }
+
+    protected override void OnInitialized()
+    {
+        _globalState.AppBarTitle = "Generate Reports";
+    }
+
+    // This method Generates the PDF
+    private void HandleGenerateReport()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(_reportType))
+            {
+                Snackbar.Add("Please Select Report Type", Severity.Error);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(_date.ToString()))
+            {
+                Snackbar.Add("Please Select date", Severity.Error);
+                return;
+            }
+
+            // This report date is converted to respective format
+            // Report Type: Monthly -> MM-yyyy
+            // Report Type: Daily -> dd-MM-yyyy
+            String reportDate;
+
+            if (_reportType == "Daily")
+            {
+                reportDate = _date?.ToString("dd-MM-yyyy");
+            }
+            else
+            {
+                reportDate = _date?.ToString("MM-yyyy");
+            }
+
+            // Get the list of orders as per the report type and date
+            List<Order> orders = ReportDataService.GenerateOrderList(_reportType, reportDate);
+
+            if (orders.Count == 0)
+            {
+                Snackbar.Add("No Orders Founds on this date. Please select another date", Severity.Error);
+                return;
+            };
+
+            // Get the list of most purchased coffee and add-ins from the filtered orders
+            Dictionary<string, List<OrderItem>> orderItems = ReportDataService.GenerateMostPurchasedCoffeeAndAddInsList(orders);
+
+            Report _report = new()
+            {
+                ReportType = _reportType,
+                ReportDate = reportDate,
+                Orders = orders,
+                CoffeeList = orderItems["coffees"],
+                AddInsList = orderItems["add-ins"],
+                TotalRevenue = Math.Round(orders.Sum(_order => (_order.OrderTotalAmount - _order.DiscountAmount)), 2)
+            };
+
+            // PDF Setup and Generation
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            ReportDocument document = new ReportDocument(_report);
+            string filePath = Path.Combine(AppUtils.GetDesktopDirectoryPath(), "Report.PDF");
+            document.GeneratePdf(filePath);
+
+            Snackbar.Add("Reports is generated sucessfully. Go to Desktop", Severity.Success);
+
+        } catch(Exception e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+
+        }
+    }
+}

@@ -1,0 +1,44 @@
+﻿@inject NavigationManager NavigationManager
+
+<div class="py-4 vh-100 bg-transparent d-flex justify-content-end">
+    <div class="d-flex flex-column">
+        <MudPaper Elevation="0" Class="h-100">
+            <CafeTitle />
+            <MudDivider Class="my-4" />
+            <MudNavMenu Bordered="true" Margin="Margin.Dense" Color="Color.Primary" Class="pa-2">
+                <MudNavLink Match="NavLinkMatch.All" Href="/home" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
+                <MudNavLink Match="NavLinkMatch.All" Href="/coffee-list" Icon="@Icons.Material.Filled.Coffee">Coffee List</MudNavLink>
+                <MudNavLink Match="NavLinkMatch.All" Href="/addIn-items" Icon="@Icons.Material.Filled.AddBox">Add-ins List</MudNavLink>
+                <MudNavLink Match="NavLinkMatch.All" Href="/cart-items" Icon="@Icons.Material.Filled.AddShoppingCart">Order Cart</MudNavLink>
+                <MudNavLink Match="NavLinkMatch.All" Href="/change-password" Icon="@Icons.Material.Filled.Security">Change Password</MudNavLink>
+
+                @if (_isUserAdmin)
+                {
+                    <MudNavLink Match="NavLinkMatch.All" Href="/sales-transactions" Icon="@Icons.Material.Filled.History">Sales History</MudNavLink>
+                    <MudNavLink Match="NavLinkMatch.All" Href="/generate-reports" Icon="@Icons.Material.Filled.InsertDriveFile">Report Generate</MudNavLink>
+                }
+            </MudNavMenu>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Login" Color="Color.Primary" OnClick="logout" Class="mx-4">
+                Log Out
+            </MudButton>
+        </MudPaper>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] private GlobalState _globalState { set; get; }
+
+    private bool _isUserAdmin { get; set; }
+
+    protected override void OnInitialized()
+    {
+        _isUserAdmin = _globalState?.CurrentUser?.Role.ToString() == "Administrator";
+    }
+
+    private void logout()
+    {
+        _globalState.CurrentUser = null;
+        _globalState.OrderItems = new();
+        NavigationManager.NavigateTo("/sign-in");
+    }
+}

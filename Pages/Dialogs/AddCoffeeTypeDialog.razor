@@ -1,0 +1,92 @@
+@inject CoffeeServices CoffeeServices
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<MudDialog>
+    <DialogContent>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <!-- Display error message if it exists -->
+            <MudAlert Severity="Severity.Error">@_errorMessage</MudAlert>
+        }
+
+        <!-- Input fields for adding a new coffee type -->
+        <div style="width:500px;" class="d-flex flex-column gap-y-3">
+            <MudTextField @bind-Value="_currentPassword" Label="Current Password" Variant="Variant.Outlined" InputType="@InputType.Password"></MudTextField>
+            <MudTextField @bind-Value="_coffeeType" Label="Coffee Type" Variant="Variant.Outlined"></MudTextField>
+            <MudTextField @bind-Value="_price" Label="Price" Variant="Variant.Outlined" InputType="@InputType.Number"></MudTextField>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <!-- Buttons to cancel or add the new coffee type -->
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Success" OnClick="handleAddCoffeeType">Add Coffee</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    [Parameter] public GlobalState _globalState { get; set; }
+    [Parameter] public Action ChangeParentState { get; set; }
+
+    private string _errorMessage { get; set; } = "";
+
+    private string _coffeeType { get; set; }
+    private double _price { get; set; }
+
+    private string _currentPassword { get; set; }
+
+    // Close the dialog box
+    private void closeDialogBox() => MudDialog.Close(DialogResult.Ok(true));
+
+    // Cancel the dialog and close it
+    private void Cancel() => MudDialog.Cancel();
+
+    // Handle the addition of a new coffee type
+    private async Task handleAddCoffeeType()
+    {
+        try
+        {
+            // Validate input fields
+            if (String.IsNullOrEmpty(_currentPassword))
+            {
+                _errorMessage = "Please enter your current password";
+                return;
+            }
+
+            if (String.IsNullOrEmpty(_coffeeType))
+            {
+                _errorMessage = "Enter coffee type";
+                return;
+            }
+
+            if (_price <= 0)
+            {
+                _errorMessage = "Enter valid price";
+                return;
+            }
+
+            // Verify the current password
+            if (_currentPassword != _globalState.CurrentUser.Password)
+            {
+                _errorMessage = "Current password is Invalid";
+                return;
+            }
+
+            // Add the new coffee type
+            CoffeeServices.AddCoffee(_coffeeType, Math.Round(_price, 2));
+
+            // Update parent state and close the dialog
+            ChangeParentState.Invoke();
+            _errorMessage = "";
+            closeDialogBox();
+            Snackbar.Add("Coffee is successfully added", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+}

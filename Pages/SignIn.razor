@@ -1,0 +1,102 @@
+@page "/sign-in"
+
+@inject UserServices UserServices
+@inject NavigationManager NavManager
+@layout EmptyLayout
+
+<div class="d-flex justify-content-center align-items-center vh-100">
+
+    <div class="card shadow-lg p-4" style="width: 400px;">
+        <CafeTitle />
+
+        <div class="mt-4">
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-3">@_errorMessage</MudAlert>
+            }
+            else if (!string.IsNullOrEmpty(_sucessMessage))
+            {
+                <MudAlert Severity="Severity.Success" Class="mb-3">@_sucessMessage</MudAlert>
+            }
+
+            <form>
+                <div class="mb-3">
+                    <MudTextField @bind-Value="_username" Label="User Name" Variant="Variant.Outlined" />
+                </div>
+
+                <div class="mb-3">
+                    <MudTextField @bind-Value="_password" Label="Password" Variant="Variant.Outlined" InputType="@InputType.Password" />
+                </div>
+
+                <div class="mb-3">
+                    <MudSelect @bind-Value="_role" T="string" Label="Role" AnchorOrigin="Origin.BottomCenter">
+                        @foreach (Role role in Enum.GetValues(typeof(Role)))
+                        {
+                            <MudSelectItem Value="@role.ToString()" />
+                        }
+                    </MudSelect>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <MudButton Variant="Variant.Filled" DisableElevation="true" Color="Color.Primary" @onclick="_logInHandler">
+                        Log In
+                    </MudButton>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+
+
+@code{
+
+    private string _path = AppUtils.GetDesktopDirectoryPath();
+
+    [CascadingParameter]
+    private GlobalState _globalState { get; set; }
+
+    private string _errorMessage = "";
+    private string _sucessMessage = "";
+
+    private string _username { get; set; } = "admin";
+    private string _password { get; set; } = "admin";
+    private string _role { get; set; } = "Administrator";
+
+    private User _currentUser { get; set; }
+
+    private void _logInHandler()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(_username) || string.IsNullOrEmpty(_password) || string.IsNullOrEmpty(_role))
+            {
+                _errorMessage = "Please, Fill all the fiels";
+                return;
+            }
+
+            _currentUser = UserServices.LogIn(_username, _password, _role);
+            _globalState.CurrentUser = _currentUser;
+
+
+            if (_currentUser != null)
+            {
+                NavManager.NavigateTo(_currentUser.HasInitialPasswordChanged ? "/" : "/change-password");
+            }
+
+            _errorMessage = "";
+            _sucessMessage = "Authentication Sucessfull";
+            _username = "";
+            _password = "";
+            _role = "";
+        }
+        catch (Exception e)
+        {
+            _errorMessage = e.Message;
+            Console.WriteLine(e);
+        }
+    }
+}
